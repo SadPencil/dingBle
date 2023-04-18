@@ -3,8 +3,6 @@
 #include "BLEUtils.h"
 #include "esp_sleep.h"
 
-BLEAdvertising *pAdvertising;
-
 // ==== 配置开始 ====
 
 // 设置蓝牙 MAC 地址和抓到的 raw 数据。raw 数据长度不应超过 62 个字节
