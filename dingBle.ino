@@ -5,9 +5,11 @@
 
 // ==== 配置开始 ====
 
-// 设置蓝牙 MAC 地址和抓到的 raw 数据。raw 数据长度不应超过 62 个字节
 uint8_t bleMac[6] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66};
-uint8_t bleRaw[] = {0x02, 0x01, 0x06, 0x17, 0xFF, 0x00, 0x01, 0xB5, 0x00, 0x02, 0x25, 0xEC, 0xD7, 0x44, 0x00, 0x00, 0x01, 0xAA, 0x91, 0x77, 0x67, 0xAF, 0x01, 0x10, 0x00, 0x00, 0x00, 0x03, 0x03, 0x3C, 0xFE, 0x0C, 0x09, 0x52, 0x54, 0x4B, 0x5F, 0x42, 0x54, 0x5F, 0x34, 0x2E, 0x31, 0x00};
+// 0--30 前31组
+uint8_t bleAdv[] = {0x02, 0x01, 0x06, 0x17, 0xFF, 0x00, 0x01, 0xB5, 0x00, 0x02, 0x25, 0xEC, 0xD7, 0x44, 0x00, 0x00, 0x01, 0xAA, 0x91, 0x77, 0x67, 0xAF, 0x01, 0x10, 0x00, 0x00, 0x00, 0x03, 0x03, 0x3C, 0xFE};
+// 31--末尾 如果复制出来的raw超过31组 那么维护下面的数组，否则下面的数组留空
+uint8_t bleRsp[] = {0x0C, 0x09, 0x52, 0x54, 0x4B, 0x5F, 0x42, 0x54, 0x5F, 0x34, 0x2E, 0x31, 0x00};
 
 // 设置功率。若无节能需求，可直接调至最大。
 // ESP_PWR_LVL_N12 = 0,                /*!< Corresponding to -12dbm */
@@ -76,35 +78,10 @@ BLEAdvertising *pAdvertising;
 
 void ble_init()
 {
-  // 处理 bleRaw 数组
-  uint8_t _bleAdvRaw[ESP_BLE_ADV_DATA_LEN_MAX];
-  size_t _bleAdvRawLength;
-  uint8_t _bleScanRspRaw[ESP_BLE_SCAN_RSP_DATA_LEN_MAX];
-  size_t _bleScanRspRawLength;
-
-  assert(sizeof(uint8_t) == 1);
-  assert(ESP_BLE_ADV_DATA_LEN_MAX == 31 && ESP_BLE_SCAN_RSP_DATA_LEN_MAX == ESP_BLE_ADV_DATA_LEN_MAX);
-  if (sizeof(bleRaw) > ESP_BLE_ADV_DATA_LEN_MAX + ESP_BLE_SCAN_RSP_DATA_LEN_MAX)
+  if (sizeof(bleAdv) > ESP_BLE_ADV_DATA_LEN_MAX || sizeof(bleRsp) > ESP_BLE_SCAN_RSP_DATA_LEN_MAX)
   {
     criticalError = true;
     return;
-  }
-  if (sizeof(bleRaw) > ESP_BLE_ADV_DATA_LEN_MAX)
-  {
-    _bleAdvRawLength = ESP_BLE_ADV_DATA_LEN_MAX;
-    _bleScanRspRawLength = sizeof(bleRaw) - ESP_BLE_ADV_DATA_LEN_MAX;
-
-    for (size_t i = 0; i < _bleAdvRawLength; i++)
-      _bleAdvRaw[i] = bleRaw[i];
-    for (size_t i = 0; i < _bleScanRspRawLength; i++)
-      _bleScanRspRaw[i] = bleRaw[i + ESP_BLE_ADV_DATA_LEN_MAX];
-  }
-  else
-  {
-    _bleAdvRawLength = sizeof(bleRaw);
-    _bleScanRspRawLength = 0;
-    for (size_t i = 0; i < _bleAdvRawLength; i++)
-      _bleAdvRaw[i] = bleRaw[i];
   }
 
   // 设置 MAC
@@ -140,12 +117,15 @@ void ble_init()
 
   // 设置一下抓到的raw
   BLEAdvertisementData oAdvertisementData = BLEAdvertisementData();
-  oAdvertisementData.addData(std::string(reinterpret_cast<char *>(_bleAdvRaw), _bleAdvRawLength));
+  oAdvertisementData.addData(std::string(reinterpret_cast<char *>(bleAdv), sizeof(bleAdv)));
   pAdvertising->setAdvertisementData(oAdvertisementData);
 
-  BLEAdvertisementData oScanResponseData = BLEAdvertisementData();
-  oScanResponseData.addData(std::string(reinterpret_cast<char *>(_bleScanRspRaw), _bleScanRspRawLength));
-  pAdvertising->setScanResponseData(oScanResponseData);
+  if (sizeof(bleRsp) > 0)
+  {
+    BLEAdvertisementData oScanResponseData = BLEAdvertisementData();
+    oScanResponseData.addData(std::string(reinterpret_cast<char *>(bleRsp), sizeof(bleRsp)));
+    pAdvertising->setScanResponseData(oScanResponseData);
+  }
 
   // 设置广播频率
   pAdvertising->setMinInterval(ADV_FREQ);
